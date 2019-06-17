@@ -10,6 +10,9 @@ class QTableAgent {
         this.env = env;
         this.Q = {};
         this.m = 0;
+        this.T = 2000;
+        this.remained = 0;
+        this.last_update_timestamp = 0;
     }
 
     save(){
@@ -34,12 +37,14 @@ class QTableAgent {
 
     restore(content){
         this.Q = {};
-        this.stateList = [];
+        this.Qi = {};
         for (const key in content){
             var nStateToPush = this.stringStateToState(key);
             var st = key.toString();
-            if (nStateToPush.length == this.pts)
+            if (nStateToPush.length == this.pts) {
                 this.stateList.push(nStateToPush);
+                this.Qi[st] = this.stateList.length - 1;
+            }
             this.Q[st] = [];
             for (var i = 0; i < content[st].length; i++) {
                 if (content[st][i] != null){
@@ -49,6 +54,26 @@ class QTableAgent {
                     this.Q[st].push(-Infinity);
                 }
             }
+        }
+    }
+
+    addBlink(state) {
+        let id = "q_table";
+        let s = this.Qi[state];
+        if (s == -1) return;
+        let nContainer = document.getElementById(id + "_" + s);
+        if (nContainer){
+            nContainer.style.animation  = "glow 600ms infinite";
+        }
+    }
+
+    removeBlink(state) {
+        let id = "q_table";
+        let s = this.Qi[state];
+        if (s == -1) return;
+        let nContainer = document.getElementById(id + "_" + s);
+        if (nContainer){
+            nContainer.style.animation  =  "";
         }
     }
 
@@ -64,9 +89,31 @@ class QTableAgent {
         }
         // Select the max action a in Q
         let action = argMax(this.Q[state]);
-
+        let t =new Date().getTime();
+        let should_step = true;
+        if(this.last_update_timestamp == 0) {
+            this.remained = this.T;
+        } else {
+            if (action == 0) {
+                this.remained = this.T;
+            } else {
+                this.remained = this.remained - (t-this.last_update_timestamp);
+                if (this.remained > 0) {
+                    this.addBlink(state);
+                    should_step = false;
+                } else {
+                    this.removeBlink(state);
+                    this.remained = this.T;
+                }
+            }
+        }
+        this.last_update_timestamp = t;
         // Take this action and get the associated reward
-        let reward = this.env.step(action);
+        if (should_step) {
+            let reward = this.env.step(action);
+        } else {
+
+        }
     }
 
     createStateIfNotExist(st){
